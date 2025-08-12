@@ -87,7 +87,10 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
 
     // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
     function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
+        // 开启后的第一次注入或者
+        // 获取需要给手续费的地址
         address feeTo = IUniswapV2Factory(factory).feeTo();
+        // 如果对应的地址不为空地址，代表着需要提交手续费
         feeOn = feeTo != address(0);
         uint _kLast = kLast; // gas savings
         if (feeOn) {
@@ -116,7 +119,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         // 当前数量 - 备用金 就得到此次注入的两种代币的数量。
         uint amount0 = balance0.sub(_reserve0);
         uint amount1 = balance1.sub(_reserve1);
-        // 判断是否需要收付费
+        // 判断是否需要收手续费
         bool feeOn = _mintFee(_reserve0, _reserve1);
         // 获取当前所有的流动性，即所有的LP Token
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
@@ -207,13 +210,14 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
             balance1 = IERC20(_token1).balanceOf(address(this));
         }
         // amountIn = 新余额 - 交换后余额 = 新余额 − ( 原储备 − 输出量 )
-        // 这两个变量代表着该池子需要进账的代币数量
+        // 这两个变量代表着该池子本次交易进账的代币数量。
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
         // 确保有一种代币是需要进账的
         require(amount0In > 0 || amount1In > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-            // 这个公式可以拆解为 1000 * ( balance0 - (amount0In*3)/1000 ) 得到的结果就是 扣除 amount0In 的0.3%手续费的余额的100倍
+            //  这里只是去做验证交易是否扣除了3%的手续费。
+            // 这个公式可以拆解为 1000 * ( balance0 - (amount0In*3)/1000 ) 得到的结果就是 扣除 amount0In 的0.3%手续费的余额的100倍。
             uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
             uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
             // 保证新K值需要>= 原K值。
